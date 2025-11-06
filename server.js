@@ -111,6 +111,25 @@ import('node-fetch').then(({ default: fetch }) => {
 });
 
 /* ------------------------------------------------------------------
+   Additional static mock response endpoints
+------------------------------------------------------------------ */
+server.get("/success", (req, res) =>
+  res.json(require("./responses/SuccessResponse.json"))
+);
+
+server.get("/incorrect-card", (req, res) =>
+  res.json(require("./responses/IncorrectCardDetailsResponse.json"))
+);
+
+server.get("/insufficient-funds", (req, res) =>
+  res.json(require("./responses/InsufficentFundsResponse.json"))
+);
+
+server.get("/error500", (req, res) =>
+  res.status(500).json(require("./responses/500ErrorResponse.json"))
+);
+
+/* ------------------------------------------------------------------
    Use default routes under /api
 ------------------------------------------------------------------ */
 server.use('/api', router);
