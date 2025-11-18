@@ -1,7 +1,7 @@
 // server.js
 const jsonServer = require('json-server');
 const path = require('path');
-
+app.use(express.static('public'));
 const server = jsonServer.create();
 const router = jsonServer.router('db.json');
 const middlewares = jsonServer.defaults();
@@ -139,5 +139,5 @@ server.use('/api', router);
 ------------------------------------------------------------------ */
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`✅ Mock API running at http://localhost:${PORT}`);
+  console.log(` Mock API running at http://localhost:${PORT}`);
 });
