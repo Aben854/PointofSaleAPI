@@ -8,7 +8,7 @@ const middlewares = jsonServer.defaults({ static: "public" });
 
 server.use(middlewares);
 server.get("/", (req, res) => {
-res.json({ message: "Mock API is running." });
+res.json({ message: "Team 7's Mock API is running." });
 });
 
 server.use(jsonServer.bodyParser);
