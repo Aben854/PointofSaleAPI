@@ -16,9 +16,7 @@ res.json({ message: "Team 7's Mock API is running." });
 
 server.use(jsonServer.bodyParser);
 
-/* ------------------------------------------------------------------
-   Rule 1: Require a name when creating a customer
------------------------------------------------------------------- */
+ /*Require a name when creating a customer*/
 server.post('/api/customers', (req, res, next) => {
   if (!req.body.name) {
     return res.status(400).json({ error: 'Customer name is required' });
