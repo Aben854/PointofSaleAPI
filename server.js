@@ -1,13 +1,19 @@
-// server.js
+// ===============================
+// Mock Testing API
+// ===============================
 const jsonServer = require('json-server');
 const path = require('path');
 
 const server = jsonServer.create();
 const router = jsonServer.router('db.json');
-const middlewares = jsonServer.defaults();
+const middlewares = jsonServer.defaults({ static: "public" });
 
-// Enable JSON body parsing
+
 server.use(middlewares);
+server.get("/", (req, res) => {
+res.json({ message: "Team 7's Mock API is running." });
+});
+
 server.use(jsonServer.bodyParser);
 
 /* ------------------------------------------------------------------
@@ -57,7 +63,7 @@ server.post('/authorize', (req, res) => {
   const { OrderId, RequestedAmount } = req.body || {};
 
   if (chance < 0.6) {
-    // ✅ Success
+    // Success
     const body = {
       ...successTemplate,
       OrderId: OrderId || successTemplate.OrderId || 'ORDER-' + Math.floor(Math.random() * 10000),
@@ -65,15 +71,15 @@ server.post('/authorize', (req, res) => {
     };
     res.status(200).json(body);
   } else if (chance < 0.77) {
-    // ❌ Incorrect card details
+    // Incorrect card details
     const body = { ...incorrectCardTemplate, OrderId };
     res.status(400).json(body);
   } else if (chance < 0.94) {
-    // ❌ Insufficient funds
+    // Insufficient funds
     const body = { ...insufficientFundsTemplate, OrderId };
     res.status(402).json(body);
   } else {
-    // 💥 Internal server error
+    // Internal server error
     res.status(500).json(error500Template);
   }
 });
@@ -139,5 +145,5 @@ server.use('/api', router);
 ------------------------------------------------------------------ */
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`✅ Mock API running at http://localhost:${PORT}`);
+  console.log(` Mock API running at http://localhost:${PORT}`);
 });
