@@ -67,8 +67,55 @@ server.use((req, res, next) => {
 });
 
 /* ------------------------------------------------------------------
-   Rule 5: Simulate payment authorization using external response files
-   Rubric: single /authorize endpoint with 4 weighted outcomes (60/17/17/6) :contentReference[oaicite:8]{index=8}
+   Card type detection 
+------------------------------------------------------------------ */
+function detectCardType(cardNumber) {
+  const digits = (cardNumber || "").replace(/\D/g, "");
+
+  // Visa: starts with 4, length 13 or 16 or 19
+  if (/^4\d{12}(\d{3})?(\d{3})?$/.test(digits)) {
+    return "VISA";
+  }
+
+  // Mastercard: 51–55 or 2221–2720, length 16
+  if (
+    /^(5[1-5]\d{14}|2(2[2-9]\d{2}|[3-6]\d{3}|7([01]\d{2}|20\d))\d{10})$/.test(
+      digits
+    )
+  ) {
+    return "MASTERCARD";
+  }
+
+  // Amex: starts with 34 or 37, length 15
+  if (/^3[47]\d{13}$/.test(digits)) {
+    return "AMEX";
+  }
+
+  // Discover (basic pattern)
+  if (/^6(?:011|5\d{2})\d{12}$/.test(digits)) {
+    return "DISCOVER";
+  }
+
+  return "UNKNOWN";
+}
+
+function getCardNumberFromDetails(CardDetails) {
+  if (!CardDetails) return "";
+
+  // Allow either a raw string or an object
+  if (typeof CardDetails === "string") return CardDetails;
+
+  return (
+    CardDetails.cardNumber ||
+    CardDetails.CardNumber ||
+    CardDetails.number ||
+    CardDetails.pan ||
+    ""
+  );
+}
+
+/* ------------------------------------------------------------------
+   Rule 5: Simulate payment authorization
 ------------------------------------------------------------------ */
 const successTemplate = require(path.join(
   __dirname,
@@ -95,6 +142,26 @@ server.post("/authorize", (req, res) => {
   const chance = Math.random();
   const { OrderId, RequestedAmount, CardDetails } = req.body || {};
 
+  // --- Card type verification for rubric ---
+  const cardNumber = getCardNumberFromDetails(CardDetails);
+  const cardType = detectCardType(cardNumber);
+
+  // If the card type is unknown, treat as incorrect
+  if (!cardNumber || cardType === "UNKNOWN") {
+    const body = {
+      ...incorrectCardTemplate,
+      OrderId:
+        OrderId ||
+        incorrectCardTemplate.OrderId ||
+        "ORDER-" + Math.floor(Math.random() * 10000),
+      Reason:
+        incorrectCardTemplate.Reason ||
+        "Unsupported or invalid card type. Only Visa / Mastercard / Amex / Discover test cards are accepted.",
+      CardType: "UNKNOWN"
+    };
+    return res.status(400).json(body);
+  }
+
   // 60% success
   if (chance < 0.6) {
     const body = {
@@ -104,34 +171,52 @@ server.post("/authorize", (req, res) => {
         successTemplate.OrderId ||
         "ORDER-" + Math.floor(Math.random() * 10000),
       AuthorizedAmount:
-        RequestedAmount || successTemplate.AuthorizedAmount || 0
+        RequestedAmount || successTemplate.AuthorizedAmount || 0,
+      CardType: cardType
     };
     return res.status(200).json(body);
   }
 
-  // Next 17% – incorrect card details
+  // 17% incorrect card details
   if (chance < 0.77) {
-    const body = { ...incorrectCardTemplate, OrderId };
+    const body = {
+      ...incorrectCardTemplate,
+      OrderId:
+        OrderId ||
+        incorrectCardTemplate.OrderId ||
+        "ORDER-" + Math.floor(Math.random() * 10000),
+      CardType: cardType
+    };
     return res.status(400).json(body);
   }
 
-  // Next 17% – insufficient funds
+  //  17% insufficient funds
   if (chance < 0.94) {
-    const body = { ...insufficientFundsTemplate, OrderId };
+    const body = {
+      ...insufficientFundsTemplate,
+      OrderId:
+        OrderId ||
+        insufficientFundsTemplate.OrderId ||
+        "ORDER-" + Math.floor(Math.random() * 10000),
+      CardType: cardType
+    };
     return res.status(402).json(body);
   }
 
-  // Final 6% – internal server error
-  return res.status(500).json(error500Template);
+  // 6% internal server error
+  const body = {
+    ...error500Template,
+    CardType: cardType
+  };
+  return res.status(500).json(body);
 });
 
 //--------------------------------------------------------------
-// Forward local requests to the Beeceptor endpoint
+// Forward local requests to the endpoint
 //--------------------------------------------------------------
 import("node-fetch").then(({ default: fetch }) => {
   server.post("/external-authorize", async (req, res) => {
     try {
-      // Forward the same JSON body to Beeceptor
       const beeceptorResponse = await fetch(
         "https://capstoneproject.proxy.beeceptor.com/authorize",
         {
@@ -141,7 +226,6 @@ import("node-fetch").then(({ default: fetch }) => {
         }
       );
 
-      // Beeceptor may return JSON or plain text
       const contentType = beeceptorResponse.headers.get("content-type") || "";
       const data = contentType.includes("application/json")
         ? await beeceptorResponse.json()
@@ -159,7 +243,7 @@ import("node-fetch").then(({ default: fetch }) => {
 });
 
 /* ------------------------------------------------------------------
-   Additional static mock response endpoints
+   Mock Response Endpoints
 ------------------------------------------------------------------ */
 server.get("/success", (req, res) =>
   res.json(require("./responses/SuccessResponse.json"))
